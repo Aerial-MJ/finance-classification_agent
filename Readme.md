@@ -5,6 +5,9 @@
 
 ---
 
+![前端界面](./utils/image/front1.png)
+
+
 ## 项目结构
 
 ```text
@@ -79,8 +82,7 @@ pip install -r requirements.txt
 1. **克隆项目**
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo-name>
+git clone https://github.com/Aerial-MJ/finance-classification_agent.git
 ```
 
 2. **准备测试图片**
@@ -94,7 +96,7 @@ parser.add_argument("--image", type=str, default="./test.jpg")
 3. **运行系统**
 
 ```bash
-python src/main.py --image src/test.jpg
+python src/main.py --image ./test.jpg
 ```
 
 ---
@@ -144,134 +146,40 @@ image_rotate()
 
 ---
 
-## 模型路径说明（请提前下载）
+## 模型说明（请提前下载）
 
-* **Qwen2.5-VL**：[路径]
-* **LayoutLMv3**：[路径]
-* **分类模型**：[路径]
-* **RAG 向量库**：[路径]
+* **Qwen2.5-VL**：
+* **paddle ocr**：
+* **LayoutLMv3**：
+* **classification_model**：
+* **RAG 向量库**：
 
 如需本地运行，请修改 `chain_define.py` 中的路径。
 
 ---
 
-## API 说明
-1. 上传文件（/upload-file）
+## 四大功能
+### 知识库检索
+![知识库检索](./utils/image/knowledg.png)
 
-上传文件并自动处理图像旋转：
+### 布局分析
+![布局分析](./utils/image/layout.png)
 
-请求方式：POST
+### 图片识别
 
-请求参数：
+![图片识别](./utils/image/recognition.png)
+### 图片分类
 
-file: 图像文件
-
-返回：图像文件的路径（旋转校正后的图像）
-
-2. 图像旋转（/rotate-image）
-
-接收图像路径并执行旋转校正：
-
-请求方式：POST
-
-请求参数：
-
-image_path: 图像路径
-
-返回：旋转后的图像路径
-
-3. OCR 识别（/ocr）
-
-对旋转后的图像进行 OCR 文字识别：
-
-请求方式：POST
-
-请求参数：
-
-image_rotate_path: 旋转后的图像路径
-
-返回：OCR 识别出的文字
-
-4. VLM 视觉语言模型（/vlm）
-
-使用 VLM 模型提取图像的关键字段、布局信息等：
-
-请求方式：POST
-
-请求参数：
-
-image_rotate_path: 旋转后的图像路径
-
-返回：VLM 模型的识别结果
-
-5. LayoutLMv3 实体识别（/ocr_layoutlm）
-
-执行 LayoutLMv3 模型进行文本和布局实体识别：
-
-请求方式：POST
-
-请求参数：
-
-image_rotate_path: 旋转后的图像路径
-
-返回：NER 标注图像和 OCR 输出结果
-
-6. 分类模型（/classification）
-
-对图像进行分类，返回类别信息：
-
-请求方式：POST
-
-请求参数：
-
-image_rotate_path: 旋转后的图像路径
-
-返回：分类结果及相关图像
-
-7. RAG 向量检索增强（/rag）
-
-对输入文本执行 RAG 模型检索：
-
-请求方式：POST
-
-请求参数：
-
-rag_text: 待检索文本
-
-返回：RAG 模型检索结果
-
-8. DeepSeek 最终决策（/deepseek）
-
-对文本进行最终决策处理：
-
-请求方式：POST
-
-请求参数：
-
-text: 待处理文本
-
-返回：DeepSeek 模型的决策结果
-
-9. 获取图像的 Base64 编码（/image）
-
-返回图像的 Base64 编码，以便前端展示：
-
-请求方式：POST
-
-请求参数：
-
-image_path: 图像路径
-
-返回：图像的 Base64 编码字符串
+![图片分类](./utils/image/classification.png)
 
 
 ## 未来可扩展
 
 * 支持 PDF 多页输入
-* 增加字段提取输出 JSON
 * 增量学习新文档类型
 
 ---
+
 
 ## 致谢
 
