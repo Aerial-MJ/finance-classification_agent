@@ -38,13 +38,17 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
+
+
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+current_directory = os.path.dirname(os.path.abspath(__file__))
+print(current_directory)
 
 
-def image_rotate(image_origin_path):
+def image_rotate(image_origin_path):   
     class Config:
         image_path = image_origin_path
-        processored_img="./result/preprocess_image.jpg"
+        processored_img=current_directory + "/result/preprocess_image.jpg"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         doc_preprocessor = DocPreprocessor()
 
@@ -64,7 +68,7 @@ def image_rotate(image_origin_path):
     rotated = img.rotate(angle)
 
     rotated.save(Config.processored_img)
-
+    # print("=============")
     return Config.processored_img
 
 # image_rotate("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg")
@@ -72,6 +76,9 @@ def image_rotate(image_origin_path):
 
 
 def invoke_orc_model(image_rotate_path):
+    if image_rotate_path is None:
+        image_rotate_path=current_directory + "/result/preprocess_image.jpg"
+
     ocr = PaddleOCR(
         use_doc_orientation_classify=True,
         use_doc_unwarping=False,
@@ -94,8 +101,10 @@ def invoke_orc_model(image_rotate_path):
 
 
 def invoke_VLM_model (image_rotate_path) :
+    print(image_rotate_path)
+    image_rotate_path="/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/preprocess_image.jpg"
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype="auto", device_map="auto" )
+    "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype="auto" , device_map="auto" )
 
     processor = AutoProcessor.from_pretrained("/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct")
 
@@ -154,7 +163,9 @@ def invoke_VLM_model (image_rotate_path) :
     output_text = processor.batch_decode(
         generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )
+
     del model
+    torch.cuda.empty_cache()
 
     def extract_json_from_text(text: str):
         """从文本中提取第一个 {...} 并解析成 JSON"""
@@ -170,6 +181,8 @@ def invoke_VLM_model (image_rotate_path) :
             return None
         
     result = extract_json_from_text(output_text[0])
+
+    print(result)
     
     return result if result is not None else output_text[0]
 
@@ -178,15 +191,18 @@ def invoke_VLM_model (image_rotate_path) :
 
 
 def invoke_ocr_layoutLMv3_model(image_rotate_path):
-    os.makedirs("./result/ocr_output", exist_ok=True)
-    os.makedirs("./result/ner_output", exist_ok=True)
+    if not image_rotate_path :
+        image_rotate_path=current_directory + "/result/preprocess_image.jpg"
+    os.makedirs(current_directory+"/result/ocr_output", exist_ok=True)
+    os.makedirs(current_directory+"/result/ner_output", exist_ok=True)
+
     class Config:
         model_path = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-chinese/layoutlmv3-chinese-trained/best_f1_0.8733"  # 你的训练模型
         base_model = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-base-chinese"
         image_path = image_rotate_path
-        output_img = "./result/ner_output/ner_annotated.png" 
-        output_img1 = "./result/ner_output/ner_annotated_color.png" 
-        output_json = "./result/ner_output/ner_results.json" 
+        output_img = current_directory+ "/result/ner_output/ner_annotated.png" 
+        output_img1 = current_directory+ "/result/ner_output/ner_annotated_color.png" 
+        output_json = current_directory+ "/result/ner_output/ner_results.json" 
         label_list = ["O", "B-HEADER", "I-HEADER", "B-QUESTION", "I-QUESTION", "B-ANSWER", "I-ANSWER"]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -207,13 +223,13 @@ def invoke_ocr_layoutLMv3_model(image_rotate_path):
         
         result = ocr.predict(input=image_path, return_word_box=True)
         for res in result:
-            res.save_to_img("./result/ocr_output")
-            res.save_to_json("./result/ocr_output")
+            res.save_to_img(current_directory+"/result/ocr_output")
+            res.save_to_json(current_directory+"/result/ocr_output")
         
         words, bboxes = [], []
 
         for page_idx, page_res in enumerate(result):
-            json_path = f"temp_page_{page_idx}.json"
+            json_path = f"{current_directory}/temp_page_{page_idx}.json"
             page_res.save_to_json(json_path)
             with open(json_path, "r", encoding="utf-8") as f:
                 ocr_data = json.load(f)
@@ -390,15 +406,18 @@ def invoke_ocr_layoutLMv3_model(image_rotate_path):
         draw_tags , ner_tags = predict_ner(tokenizer, image_processor, model, img, words, bboxes,text_word_boxes)
         connected_text=visualize_and_connect(img, words, bboxes, ner_tags, draw_tags)
     else:
-        img.save("./result/no_ocr.png")
+        img.save(current_directory+"/result/no_ocr.png")
 
     del model
+    torch.cuda.empty_cache()
     return connected_text
 # invoke_ocr_layoutLMv3_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg")
 
 
 
 def invoke_classification_model(image_rotate_path , ocr_text):
+    if image_rotate_path is None:
+        image_rotate_path=current_directory + "/result/preprocess_image.jpg"
     class Config:
         checkpoint = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/classification/kfold_checkpoints/fold_3_best.pt"
         image = image_rotate_path
@@ -645,14 +664,15 @@ def invoke_classification_model(image_rotate_path , ocr_text):
     # print("=" * 80)
 
     del model
+    
+    torch.cuda.empty_cache()
 
     return classification_result
-
-# invoke_classification_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg","你好")
-
+# invoke_classification_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg","ocr识别到的文字")
 
 
-def invoke_rag_model(rag_text):
+
+def invoke_rag_model(rag_text , source = None):
     PERSIST_DIR = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db"
 
     EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
@@ -664,7 +684,7 @@ def invoke_rag_model(rag_text):
         raise FileNotFoundError(f"向量库不存在: {PERSIST_DIR}")
 
     # ==================== 加载向量库 ====================
-    #print("正在加载向量库...")
+    print("正在加载向量库...")
     embeddings = OpenAIEmbeddings(
         base_url=BASE_URL,
         model=EMBEDDING_MODEL,
@@ -673,7 +693,7 @@ def invoke_rag_model(rag_text):
 
     vectorstore = Chroma(persist_directory=PERSIST_DIR, embedding_function=embeddings)
 
-    #print(f"向量库加载成功！共 {vectorstore._collection.count()} 条记录\n")
+    print(f"向量库加载成功！共 {vectorstore._collection.count()} 条记录\n")
 
 
     # ==================== 测试查询 ====================
@@ -681,61 +701,97 @@ def invoke_rag_model(rag_text):
         rag_text
     ]
 
-    #print("="*60)
-    #print("开始 RAG 检索测试")
-    #print("="*60)
-
-    retrieve_content=""
-
-    for i, query in enumerate(queries, 1):
-        #print(f"\n查询 {i}: {query}")
-        #print("-" * 50)
-        
-        # 关键：执行检索，返回 Document 列表
-        docs = vectorstore.similarity_search(query, k=4)
-        
-        if not docs:
-            #print("未检索到任何结果")
-            continue
-
-        
-        # 遍历检索结果
-        for j, doc in enumerate(docs, 1):
-            # 1. 内容预览
-            content = doc.page_content.strip()
-            preview = content[:300] + ("..." if len(content) > 300 else "")
-            preview = preview.replace("\n", " ").replace("  ", " ")
-
-            # 2. 关键元数据
-            source = doc.metadata.get('source', 'unknown')
-            line = doc.metadata.get('line', '?')
-            label = doc.metadata.get('label', 'N/A')
+    if source is not None:
+        results = []
+        for i, query in enumerate(queries, 1):
+            docs = vectorstore.similarity_search(query, k=3)
             
-            # 3. key_fields 处理
-            kf = doc.metadata.get('key_fields', {})
-            if isinstance(kf, str):
-                try:
-                    kf = json.loads(kf)
-                except:
-                    kf = {}
-            key_preview = " | ".join(f"{k}:{v}" for k, v in list(kf.items()) if v)
+            if not docs:
+                #print("未检索到任何结果")
+                continue
+
+            for j, doc in enumerate(docs, 1):
+                
+                content = doc.page_content.strip()
+                preview = content[:300] + ("..." if len(content) > 300 else "")
+                preview = preview.replace("\n", " ").replace("  ", " ")
+
+                source = doc.metadata.get('source', 'unknown')
+                line = doc.metadata.get('line', '?')
+                label = doc.metadata.get('label', 'N/A')
+
+                # key_fields 处理
+                kf = doc.metadata.get('key_fields', {})
+                if isinstance(kf, str):
+                    try:
+                        kf = json.loads(kf)
+                    except:
+                        kf = {}
+                key_preview = " | ".join(f"{k}:{v}" for k, v in kf.items() if v)
+
+                results.append({
+                    "id": j,
+                    "title": f"[{label}] {source.split('/')[-1]}",  # 智能标题
+                    "snippet": preview,
+                    "source": source,
+                    "line": line,
+                    "label": label,
+                    "key_fields": kf,
+                    "key_preview": key_preview
+                })
+            return results
+    else:
+        retrieve_content=""
+
+        for i, query in enumerate(queries, 1):
+            #print(f"\n查询 {i}: {query}")
+            #print("-" * 50)
+            
+            # 关键：执行检索，返回 Document 列表
+            docs = vectorstore.similarity_search(query, k=4)
+            
+            if not docs:
+                #print("未检索到任何结果")
+                continue
 
             
-            # 4. 打印
-            print(f"[{j}] {preview}")
-            print(f"    → 来源: {source} (第 {line} 行)")
-            print(f"    → 标签: {label}")
-            if key_preview:
-                print(f"    → 关键: {key_preview}")
-            retrieve_content += (
-                f"[{j}] {preview}\n"
-                f"    → 来源: {source} (第 {line} 行)\n"
-                f"    → 标签: {label}\n"
-                f"    → 关键: {key_preview}\n"
-            )
+            # 遍历检索结果
+            for j, doc in enumerate(docs, 1):
+                # 1. 内容预览
+                content = doc.page_content.strip()
+                preview = content[:300] + ("..." if len(content) > 300 else "")
+                preview = preview.replace("\n", " ").replace("  ", " ")
 
-    return retrieve_content
-# invoke_rag_model("nihao")
+                # 2. 关键元数据
+                source = doc.metadata.get('source', 'unknown')
+                line = doc.metadata.get('line', '?')
+                label = doc.metadata.get('label', 'N/A')
+                
+                # 3. key_fields 处理
+                kf = doc.metadata.get('key_fields', {})
+                if isinstance(kf, str):
+                    try:
+                        kf = json.loads(kf)
+                    except:
+                        kf = {}
+                key_preview = " | ".join(f"{k}:{v}" for k, v in list(kf.items()) if v)
+
+                
+                # 4. 打印
+                print(f"[{j}] {preview}")
+                print(f"    → 来源: {source} (第 {line} 行)")
+                print(f"    → 标签: {label}")
+                if key_preview:
+                    print(f"    → 关键: {key_preview}")
+                retrieve_content += (
+                    f"[{j}] {preview}\n"
+                    f"    → 来源: {source} (第 {line} 行)\n"
+                    f"    → 标签: {label}\n"
+                    f"    → 关键: {key_preview}\n"
+                )
+
+        return retrieve_content
+# invoke_rag_model("转账支票-处理")
 
 
 
@@ -753,4 +809,68 @@ def invoke_deepseek_model(text):
     #print(ans.content)
 
     return ans.content
-# invoke_deepseek_model("nihao")
+# invoke_deepseek_model("转账支票-处理")
+
+
+
+def invoke_model(rotate_image):
+    print("="*60)
+    print("图片预处理并识别ocr文字")
+
+
+    ocr_text = invoke_orc_model(rotate_image)
+    print("="*60)
+    print("执行分类模型")
+
+    classification_result = invoke_classification_model(rotate_image,ocr_text)
+    # print(classification_result)
+    for idx , res in enumerate(classification_result) :
+        key , value = list(res.keys())[0],list(res.values())[0]
+        print(f"  {idx+1}. {key:<30} {float(value)/100:.4f} ({value}%)")
+
+    cl = classification_result[0]
+    class_ , score =list(cl.keys())[0] , list(cl.values())[0]
+
+    if(float(score)>90):
+        print("当前置信度较高，直接分类为", class_)
+        invoke_ocr_layoutLMv3_model(rotate_image)
+        return class_
+    else:
+        print("当前置信度较低，建议进一步调用模型,可能不属于该分类")
+
+    classification_text = "分类模型预测结果（按置信度排序）:\n"
+    for idx, res in enumerate(classification_result):
+        key, value = list(res.items())[0]
+        classification_text += f"{idx+1}. {key} ({value}%)\n"
+    print("="*60)
+    print("执行ocr——ner模型")
+    ocr_json = invoke_ocr_layoutLMv3_model(rotate_image)
+
+
+    print("="*60)
+    print("执行vlm模型")
+    VLM_json = invoke_VLM_model(rotate_image)
+    # VLM_json = "{'file_type': '健康确认表', 'key_fields': {'姓名': '李秀', '性别': '女', '出生日期': '1982.4.13', '国籍': '中国', '联系电话': '15195851025', '护照号码': '568924', '有效签证': '有', '现居住地址': '成都市东湖国际东光-琉璃路299号', '代理人姓名': '', '代理人证件及号码': '', '填表日期': '', '申请人签名': '', '经办人签名': '', '审核人签署': ''}, 'layout_features': {'has_table': True, 'has_title': True, 'title': '健在确认表（存根）', 'table_structure': '多列多行表格，包含姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段'}, 'content_summary': '该文件是一份健康确认表，用于记录个人的基本信息、联系方式、证件情况以及居住地址等。表格中包含了姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段。'}"
+
+    print("="*60)
+    print("执行rag模型")
+    rag_text = invoke_rag_model(str(VLM_json))
+
+    print("="*60)
+    print("执行最终的判断模型")    
+    final_prompt = (
+        "你是一个文档分类模型，需要根据以下信息判断该文档属于哪一类：\n\n"
+        f"1. VLM 模型提取的关键信息和布局特征：\n{VLM_json}\n\n"
+        f"2. OCR 与 NER 提取的文本信息和命名实体信息：\n{ocr_json}\n\n，请着重注意HEADER标签，是很清晰的分类依据"
+        f"3. 检索到的相关背景知识（可以作为参考）：\n{rag_text}\n\n"
+        f"4. 先前分类模型的预测结果（因为置信度较低，所以没有直接作为判断依据）：\n{classification_text}\n\n"
+        "文档可能属于以下分类之一："
+        "业务委托书-处理, 利润表-处理, 特种转账借方-处理, 特种转账贷方-处理, "
+        "营业执照-处理, 资产负债表--处理, 身份证反面, 身份证正面--处理, "
+        "转账支票-处理, 进账单-处理，也有可能属于其他未列出的分类。\n"
+        "请输出文档的最终分类名称，只输出分类，不要其他解释。"
+    )
+
+    result=invoke_deepseek_model(final_prompt)
+
+    return result

@@ -55,11 +55,10 @@ def main():
     os.makedirs("./result", exist_ok=True)
     os.makedirs("./result/ocr_output", exist_ok=True)
     os.makedirs("./result/ner_output", exist_ok=True)
-    # print("hi")
 
-    with open("./tools.json", "r", encoding="utf-8") as f:
-        tools_data = json.load(f)
-        full_system = Config.system_prompt.replace("{tools}", json.dumps(tools_data["tools"]))
+    # with open("./tools.json", "r", encoding="utf-8") as f:
+    #     tools_data = json.load(f)
+    #     full_system = Config.system_prompt.replace("{tools}", json.dumps(tools_data["tools"]))
     
     parser = argparse.ArgumentParser(description="Single-sample inference for classification model")
     
@@ -79,6 +78,7 @@ def main():
     # history.append({"role": "user", "content": full_system + user_input})
 
     # agent_chat(history=history)
+    
     print("="*60)
     print("图片预处理并识别ocr文字")
 
@@ -114,6 +114,8 @@ def main():
     print("="*60)
     print("执行vlm模型")
     VLM_json = invoke_VLM_model(rotate_image)
+    # VLM_json = "{'file_type': '健康确认表', 'key_fields': {'姓名': '李秀', '性别': '女', '出生日期': '1982.4.13', '国籍': '中国', '联系电话': '15195851025', '护照号码': '568924', '有效签证': '有', '现居住地址': '成都市东湖国际东光-琉璃路299号', '代理人姓名': '', '代理人证件及号码': '', '填表日期': '', '申请人签名': '', '经办人签名': '', '审核人签署': ''}, 'layout_features': {'has_table': True, 'has_title': True, 'title': '健在确认表（存根）', 'table_structure': '多列多行表格，包含姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段'}, 'content_summary': '该文件是一份健康确认表，用于记录个人的基本信息、联系方式、证件情况以及居住地址等。表格中包含了姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段。'}"
+
     print("="*60)
     print("执行rag模型")
     rag_text = invoke_rag_model(str(VLM_json))
@@ -138,7 +140,5 @@ def main():
     print(result)
 
     
-
-
 if __name__ == "__main__":
     main()
