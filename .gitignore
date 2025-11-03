@@ -16,3 +16,4 @@ script/functioncall/fineturn_functioncall/qwen_functioncall_full_finetune
 script/functioncall/fineturn_functioncall/results
 script/functioncall/fineturn_functioncall/results_full_finetune
 script/classification/bert-base-chinese
+data/*
