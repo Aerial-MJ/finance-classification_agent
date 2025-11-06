@@ -29,7 +29,7 @@ messages = [
         "content": [
             {
                 "type": "image",
-                "image": "/data/postgraduates/2024/chenjiarui/Model/Agent/data/图片示例/业务委托书-处理/0A60CEC6-E132-DA6B-5709-9228584EE8BA.jpg",
+                "image": "./test1.jpg",
             },
             {"type": "text", 
             "text": """

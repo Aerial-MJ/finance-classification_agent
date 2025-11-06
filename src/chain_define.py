@@ -1,6 +1,10 @@
+import base64
 from collections import Counter
+from io import BytesIO
 import os
+import shutil
 import numpy as np
+from openai import OpenAI
 import torch
 import json
 from transformers import (
@@ -38,11 +42,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
-
+from Agent.script.rag.preprocess_data.offline_process import VectorStoreManager
 
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 current_directory = os.path.dirname(os.path.abspath(__file__))
-print(current_directory)
+# print(current_directory)
 
 
 def image_rotate(image_origin_path):   
@@ -71,7 +75,7 @@ def image_rotate(image_origin_path):
     # print("=============")
     return Config.processored_img
 
-# image_rotate("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg")
+# image_rotate("/data/postgraduates/2024/chenjiarui/Model/Agent/test/零图片样本/银行本票/本票8.jpg")
 
 
 
@@ -93,16 +97,18 @@ def invoke_orc_model(image_rotate_path):
         os.remove(json_path)
         ocr_text = " ".join(ocr_data.get("rec_texts", []))
 
+
     #print(ocr_text)
     return ocr_text
     
-# invoke_orc_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg")
+# invoke_orc_model("/data/postgraduates/2024/chenjiarui/Model/Agent/test/零图片样本/银行本票/本票8.jpg")
 
 
 
-def invoke_VLM_model (image_rotate_path) :
+def invoke_VLM_Local_model (image_rotate_path) :
     print(image_rotate_path)
-    image_rotate_path="/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/preprocess_image.jpg"
+    if not image_rotate_path:
+        image_rotate_path="/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/preprocess_image.jpg"
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
     "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype="auto" , device_map="auto" )
 
@@ -156,14 +162,14 @@ def invoke_VLM_model (image_rotate_path) :
     inputs = inputs.to("cuda")
 
     # Inference: Generation of the output
-    generated_ids = model.generate(**inputs, max_new_tokens=512)
+    generated_ids = model.generate(**inputs, max_new_tokens=1024)
     generated_ids_trimmed = [
         out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
     ]
     output_text = processor.batch_decode(
         generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )
-
+    print(output_text)
     del model
     torch.cuda.empty_cache()
 
@@ -186,6 +192,111 @@ def invoke_VLM_model (image_rotate_path) :
     
     return result if result is not None else output_text[0]
 
+
+
+def invoke_VLM_model(image_rotate_path):
+    
+    # 新增：将任意格式图片转换为内存中的PNG二进制数据
+    def convert_to_png_bytes(image_path):
+        """将任意格式图片转换为内存中的PNG格式二进制数据"""
+        try:
+            with Image.open(image_path) as img:
+                # 处理透明通道（确保兼容性）
+                if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+                    img = img.convert('RGBA')
+                else:
+                    img = img.convert('RGB')  # 非透明图转RGB
+                
+                # 存入内存缓冲区（不落地保存）
+                png_buffer = BytesIO()
+                img.save(png_buffer, format='PNG')  # 强制转为PNG格式
+                return png_buffer.getvalue()  # 返回PNG二进制数据
+        except Exception as e:
+            print(f"图片格式转换失败：{str(e)}")
+            return None
+
+    # 修改：基于PNG二进制数据进行base64编码
+    def encode_image_to_base64(png_bytes):
+        """将PNG二进制数据编码为base64字符串"""
+        return base64.b64encode(png_bytes).decode("utf-8")
+
+
+    client = OpenAI(
+        api_key="sk-b95eb1a0a35f44efa7b49d2bca9d4c1f",  # 替换为你的API Key
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    )
+
+
+    prompt = """
+    请分析下图，为了方便判断它属于以下哪种类型的文件，
+    我需要你提取该文件中的关键信息，包括文件的关键字段（如：姓名、日期、金额、编号等）、文本内容、相关布局特征（如：表格、段落、标题等）。
+    请按以下格式返回输出：
+    {
+        "file_type": "文件类型（需要你自己判断）,
+        "key_fields": {
+            "field_1": "字段值",
+            "field_2": "字段值",
+            ...
+        },
+        "layout_features": {
+            "has_table": true/false,
+            "has_title": true/false,
+            "title": "标题文本",
+            "table_structure": "表格结构描述（如：列名、行数等）"
+        },
+        "content_summary": "文件内容简要概述"
+    }
+    """
+
+    image_path = image_rotate_path  
+
+
+    png_bytes = convert_to_png_bytes(image_path)
+    if not png_bytes:
+        print("无法处理图片，请检查路径或格式")
+    else:
+        base64_image = encode_image_to_base64(png_bytes)
+        
+        completion_image2text = client.chat.completions.create(
+            model="qwen3-vl-plus",
+            messages=[
+                {
+                    "role": "system",
+                    "content": [{"type":"text","text": "你是一位非常擅长理解图片的助手"}]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{base64_image}"},  # 始终以PNG格式传入
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+        )
+        
+        # 提取结果
+        text = completion_image2text.choices[0].message.content
+
+        def extract_json_from_text(text: str):
+            """从文本中提取第一个 {...} 并解析成 JSON"""
+            start = text.find("{")
+            end = text.rfind("}")
+            if start == -1 or end == -1 or start >= end:
+                # 找不到合法 JSON
+                return None
+            json_str = text[start:end+1]
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                return None
+            
+        result = extract_json_from_text(text)
+        
+        print(text)
+        return result if result is not None else text
 # invoke_VLM_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg")
 
 
@@ -411,7 +522,8 @@ def invoke_ocr_layoutLMv3_model(image_rotate_path):
     del model
     torch.cuda.empty_cache()
     return connected_text
-# invoke_ocr_layoutLMv3_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg")
+
+# invoke_ocr_layoutLMv3_model("/data/postgraduates/2024/chenjiarui/Model/Agent/test/零图片样本/银行本票/本票8.jpg")
 
 
 
@@ -668,43 +780,35 @@ def invoke_classification_model(image_rotate_path , ocr_text):
     torch.cuda.empty_cache()
 
     return classification_result
+
 # invoke_classification_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg","ocr识别到的文字")
 
 
 
 def invoke_rag_model(rag_text , source = None):
-    PERSIST_DIR = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db"
+    if not rag_text:
+        return
+    
+    if len(rag_text)>20:
+        return
+    manager = VectorStoreManager()
 
-    EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
-    BASE_URL = "https://api.siliconflow.cn/v1"
-    API_KEY = "sk-tgprnspwkhliprfcuobqpfiiwjawxkgaldpfkjtovpfudpmf"
+    # 构建/更新向量库
+    manager.add_documents()
 
-    # 检查路径
-    if not os.path.exists(PERSIST_DIR):
-        raise FileNotFoundError(f"向量库不存在: {PERSIST_DIR}")
+    # 示例检索
+    print("\n" + "="*60)
+    print("示例检索（效果展示）")
+    print("="*60)
 
-    # ==================== 加载向量库 ====================
-    print("正在加载向量库...")
-    embeddings = OpenAIEmbeddings(
-        base_url=BASE_URL,
-        model=EMBEDDING_MODEL,
-        api_key=API_KEY
-    )
-
-    vectorstore = Chroma(persist_directory=PERSIST_DIR, embedding_function=embeddings)
-
-    print(f"向量库加载成功！共 {vectorstore._collection.count()} 条记录\n")
-
-
-    # ==================== 测试查询 ====================
-    queries = [
+    test_queries = [
         rag_text
     ]
 
     if source is not None:
         results = []
-        for i, query in enumerate(queries, 1):
-            docs = vectorstore.similarity_search(query, k=3)
+        for i, query in enumerate(test_queries, 1):
+            docs = manager.search(query, top_k=3)
             
             if not docs:
                 #print("未检索到任何结果")
@@ -712,16 +816,17 @@ def invoke_rag_model(rag_text , source = None):
 
             for j, doc in enumerate(docs, 1):
                 
-                content = doc.page_content.strip()
+                content = doc.get("content").strip()
+                print(content)
                 preview = content[:300] + ("..." if len(content) > 300 else "")
                 preview = preview.replace("\n", " ").replace("  ", " ")
 
-                source = doc.metadata.get('source', 'unknown')
-                line = doc.metadata.get('line', '?')
-                label = doc.metadata.get('label', 'N/A')
+                source = doc.get("metadata").get('source', 'unknown')
+                line = doc.get("metadata").get('line', '?')
+                label = doc.get("metadata").get('label', 'N/A')
 
                 # key_fields 处理
-                kf = doc.metadata.get('key_fields', {})
+                kf = doc.get("metadata").get('key_fields', {})
                 if isinstance(kf, str):
                     try:
                         kf = json.loads(kf)
@@ -731,7 +836,7 @@ def invoke_rag_model(rag_text , source = None):
 
                 results.append({
                     "id": j,
-                    "title": f"[{label}] {source.split('/')[-1]}",  # 智能标题
+                    "title": f"[{label}] {source}",  # 智能标题
                     "snippet": preview,
                     "source": source,
                     "line": line,
@@ -740,57 +845,35 @@ def invoke_rag_model(rag_text , source = None):
                     "key_preview": key_preview
                 })
             return results
-    else:
-        retrieve_content=""
 
-        for i, query in enumerate(queries, 1):
-            #print(f"\n查询 {i}: {query}")
-            #print("-" * 50)
+    result=""
+    for q in test_queries:
+        print(f"\n> 查询: {q}")
+        results = manager.search(q, top_k=3)
+        for i, r in enumerate(results, 1):
+            print(f"\n  [{i}] 完整凭证")
+            print("=" * 80)
             
-            # 关键：执行检索，返回 Document 列表
-            docs = vectorstore.similarity_search(query, k=4)
+            # 1. 完整 content（不截断）
+            print("  内容：")
+            print(f"    {r['content']}")
+            print()
             
-            if not docs:
-                #print("未检索到任何结果")
-                continue
-
+            # 2. 完整 metadata（格式化 JSON）
+            print("  元数据：")
+            import json
+            metadata_str = json.dumps(r['metadata'], ensure_ascii=False, indent=4)
+            print(f"    {metadata_str}")
             
-            # 遍历检索结果
-            for j, doc in enumerate(docs, 1):
-                # 1. 内容预览
-                content = doc.page_content.strip()
-                preview = content[:300] + ("..." if len(content) > 300 else "")
-                preview = preview.replace("\n", " ").replace("  ", " ")
+            # 3. 来源摘要
+            source_file = os.path.basename(r['metadata'].get('source', 'unknown'))
+            label = r['metadata'].get('label', '未知')
+            print(f"\n  来源: {source_file} | 类型: {label}")
+            print("-" * 80)
 
-                # 2. 关键元数据
-                source = doc.metadata.get('source', 'unknown')
-                line = doc.metadata.get('line', '?')
-                label = doc.metadata.get('label', 'N/A')
-                
-                # 3. key_fields 处理
-                kf = doc.metadata.get('key_fields', {})
-                if isinstance(kf, str):
-                    try:
-                        kf = json.loads(kf)
-                    except:
-                        kf = {}
-                key_preview = " | ".join(f"{k}:{v}" for k, v in list(kf.items()) if v)
+            result += r['content']
+    return result
 
-                
-                # 4. 打印
-                print(f"[{j}] {preview}")
-                print(f"    → 来源: {source} (第 {line} 行)")
-                print(f"    → 标签: {label}")
-                if key_preview:
-                    print(f"    → 关键: {key_preview}")
-                retrieve_content += (
-                    f"[{j}] {preview}\n"
-                    f"    → 来源: {source} (第 {line} 行)\n"
-                    f"    → 标签: {label}\n"
-                    f"    → 关键: {key_preview}\n"
-                )
-
-        return retrieve_content
 # invoke_rag_model("转账支票-处理")
 
 
@@ -854,23 +937,32 @@ def invoke_model(rotate_image):
 
     print("="*60)
     print("执行rag模型")
-    rag_text = invoke_rag_model(str(VLM_json))
+    rag_text = invoke_rag_model(VLM_json["file_type"])
 
     print("="*60)
-    print("执行最终的判断模型")    
+    print("执行最终的判断模型")  
+
+   
+    image_dir = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/图片示例"
+
+    categories = [p.name for p in Path(image_dir).iterdir() if p.is_dir()]
+
+    categories_str = ",".join(categories)
+
+
     final_prompt = (
         "你是一个文档分类模型，需要根据以下信息判断该文档属于哪一类：\n\n"
         f"1. VLM 模型提取的关键信息和布局特征：\n{VLM_json}\n\n"
-        f"2. OCR 与 NER 提取的文本信息和命名实体信息：\n{ocr_json}\n\n，请着重注意HEADER标签，是很清晰的分类依据"
+        f"2. OCR 与 NER 提取的文本信息和命名实体信息：\n{ocr_json}\n\n"
+        "请着重注意HEADER标签，是很清晰的分类依据\n"
         f"3. 检索到的相关背景知识（可以作为参考）：\n{rag_text}\n\n"
         f"4. 先前分类模型的预测结果（因为置信度较低，所以没有直接作为判断依据）：\n{classification_text}\n\n"
-        "文档可能属于以下分类之一："
-        "业务委托书-处理, 利润表-处理, 特种转账借方-处理, 特种转账贷方-处理, "
-        "营业执照-处理, 资产负债表--处理, 身份证反面, 身份证正面--处理, "
-        "转账支票-处理, 进账单-处理，也有可能属于其他未列出的分类。\n"
+        f"文档可能属于以下分类之一：{categories_str}。\n"
+        "也可能属于其他未列出的分类。\n"
         "请输出文档的最终分类名称，只输出分类，不要其他解释。"
     )
 
     result=invoke_deepseek_model(final_prompt)
-
     return result
+
+

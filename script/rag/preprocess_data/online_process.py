@@ -14,7 +14,7 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 
 # ==================== 配置 ====================
-PERSIST_DIR = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db"
+PERSIST_DIR = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db_final"
 
 EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
 BASE_URL = "https://api.siliconflow.cn/v1"
@@ -33,15 +33,16 @@ embeddings = OpenAIEmbeddings(
 )
 
 vectorstore = Chroma(persist_directory=PERSIST_DIR, embedding_function=embeddings)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+query = "江南农村商业银行的贷款合同有哪些关键信息？"
+retrieved_docs = retriever.get_relevant_documents(query)
 
 print(f"向量库加载成功！共 {vectorstore._collection.count()} 条记录\n")
 
 
 # ==================== 测试查询 ====================
-queries = [
-    "营业执照-处理"
-]
+queries = []
 
 print("="*60)
 print("开始 RAG 检索测试")

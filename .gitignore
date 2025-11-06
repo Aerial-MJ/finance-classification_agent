@@ -19,3 +19,6 @@ script/classification/bert-base-chinese
 data/*
 script/rag/data/图片示例
 script/classification/data_raw
+test
+script/rag/data/chroma_db
+script/rag/data/chroma_db_final
