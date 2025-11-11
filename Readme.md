@@ -16,7 +16,8 @@
 ├── script/                 # 各模块实现
 │   ├── classification/     # 图像+文本融合分类模型
 │   ├── deepseek/           # 最终决策 LLM（DeepSeek）
-│   ├── functioncall/       # 函数调用 Agent（未启用）
+│   ├── functioncall/       # 函数调用 Agent（选择性启用）
+│   ├── distillation/       # 函数调用 蒸馏模型（选择性启用）
 │   ├── paddle/             # PaddleOCR 相关
 │   ├── rag/                # 向量检索增强（RAG）
 │   └── vlm/                # 视觉语言模型（Qwen2.5-VL）
