@@ -8,12 +8,13 @@ from transformers import (
     TrainingArguments, set_seed,
     DataCollatorForLanguageModeling
 )
+from Agent.configs.parse import args
 
 # ====== 基础配置 ======
 seed = 42
 set_seed(seed)
 
-model_name = "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen3-1.7B"
+model_name = args.qwen3_1_7b_model
 dataset_name = "./hermes-function-calling-thinking-V1"
 output_dir = "./qwen_functioncall_full_finetune"
 per_device_train_batch_size = 1  # 可根据显存调整

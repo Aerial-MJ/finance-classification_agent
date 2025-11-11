@@ -2,12 +2,12 @@ import os
 import shutil
 import random
 import json
+from Agent.configs.parse import args
 
 # 源路径和目标路径
-source_root = "/data/postgraduates/2024/chenjiarui/Model/Agent/data/图片示例"
-target_root = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/图片示例"
-target_root_jsonl = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/"
-jsonl_path = os.path.join(target_root_jsonl, "knowledge_base.jsonl")
+source_root = args.data_dir
+target_root = args.rag_data_dir
+jsonl_path = args.knowledge_base_dir
 
 # 创建目标根目录
 os.makedirs(target_root, exist_ok=True)

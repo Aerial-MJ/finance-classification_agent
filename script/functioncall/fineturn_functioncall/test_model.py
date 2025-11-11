@@ -1,22 +1,16 @@
 # test_qwen.py
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
-
 import torch
-
-from datasets import load_dataset
-from trl import SFTConfig, SFTTrainer
-from peft import LoraConfig, get_peft_model, TaskType
 import torch
 from transformers import (
     AutoTokenizer, AutoModelForCausalLM, 
-    TrainingArguments, Trainer,set_seed,
-    DataCollatorForLanguageModeling
 )
+from Agent.configs.parse import args
 
-base_model_path = "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen3-1.7B"
-lora_checkpoint = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/fineturn_functioncall/qwen_functioncall_full_finetune/checkpoint-400"
+
+base_model_path = args.qwen3_1_7b_model
+lora_checkpoint = args.functioncall_model_path
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # -----------------------------

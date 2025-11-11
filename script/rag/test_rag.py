@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Agentic RAG MVP（真实向量库版）
-支持：检索 → 查看文件 → 精读 chunk → 引用 source+line
-"""
-
 import json
 import os
 from typing import List, Dict
@@ -14,16 +9,16 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
+from Agent.configs.parse import args
 
 # ==================== 配置 ====================
-PERSIST_DIR = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db"
-EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
-EMBEDDING_BASE_URL = "https://api.siliconflow.cn/v1"
-EMBEDDING_API_KEY = "sk-tgprnspwkhliprfcuobqpfiiwjawxkgaldpfkjtovpfudpmf"
-
-LLM_MODEL = "deepseek-chat"
-LLM_BASE_URL = "https://api.deepseek.com"
-LLM_API_KEY = "sk-9fc40e8ded4a45f5b9fc61b3330074d3"
+PERSIST_DIR = args.local_persist_dir
+EMBEDDING_MODEL = args.embedding_model
+EMBEDDING_BASE_URL = args.rag_base_url
+EMBEDDING_API_KEY = args.rag_api_key
+LLM_MODEL = args.llm_model
+LLM_BASE_URL = args.llm_base_url
+LLM_API_KEY = args.llm_api_key
 
 # 检查向量库
 if not os.path.exists(PERSIST_DIR):

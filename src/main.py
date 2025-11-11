@@ -3,10 +3,8 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from Agent.src.chain_define import invoke_VLM_model,invoke_classification_model,invoke_deepseek_model,invoke_orc_model,invoke_ocr_layoutLMv3_model,invoke_rag_model,image_rotate
 import argparse
-import re
-import json
-
-
+from Agent.configs.parse import args
+from pathlib import Path
 
 class Config:
 
@@ -16,7 +14,7 @@ class Config:
     {tool_call}
     </tool_call> Also, before making a call to a function take the time to plan the function to take. Make that thinking process between <think>{your thoughts}</think>
     """
-    model_path = "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen3-1.7B"
+    model_path = args.qwen3_1_7b_model
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -114,24 +112,28 @@ def main():
     print("="*60)
     print("执行vlm模型")
     VLM_json = invoke_VLM_model(rotate_image)
-    # VLM_json = "{'file_type': '健康确认表', 'key_fields': {'姓名': '李秀', '性别': '女', '出生日期': '1982.4.13', '国籍': '中国', '联系电话': '15195851025', '护照号码': '568924', '有效签证': '有', '现居住地址': '成都市东湖国际东光-琉璃路299号', '代理人姓名': '', '代理人证件及号码': '', '填表日期': '', '申请人签名': '', '经办人签名': '', '审核人签署': ''}, 'layout_features': {'has_table': True, 'has_title': True, 'title': '健在确认表（存根）', 'table_structure': '多列多行表格，包含姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段'}, 'content_summary': '该文件是一份健康确认表，用于记录个人的基本信息、联系方式、证件情况以及居住地址等。表格中包含了姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段。'}"
 
     print("="*60)
     print("执行rag模型")
     rag_text = invoke_rag_model(str(VLM_json))
 
     print("="*60)
-    print("执行最终的判断模型")    
+    print("执行最终的判断模型")   
+
+    image_dir = args.rag_data_dir
+    categories = [p.name for p in Path(image_dir).iterdir() if p.is_dir()]
+    categories_str = ",".join(categories)
+
+
     final_prompt = (
         "你是一个文档分类模型，需要根据以下信息判断该文档属于哪一类：\n\n"
         f"1. VLM 模型提取的关键信息和布局特征：\n{VLM_json}\n\n"
-        f"2. OCR 与 NER 提取的文本信息和命名实体信息：\n{ocr_json}\n\n，请着重注意HEADER标签，是很清晰的分类依据"
+        f"2. OCR 与 NER 提取的文本信息和命名实体信息：\n{ocr_json}\n\n"
+        "请着重注意HEADER标签，是很清晰的分类依据\n"
         f"3. 检索到的相关背景知识（可以作为参考）：\n{rag_text}\n\n"
         f"4. 先前分类模型的预测结果（因为置信度较低，所以没有直接作为判断依据）：\n{classification_text}\n\n"
-        "文档可能属于以下分类之一："
-        "业务委托书-处理, 利润表-处理, 特种转账借方-处理, 特种转账贷方-处理, "
-        "营业执照-处理, 资产负债表--处理, 身份证反面, 身份证正面--处理, "
-        "转账支票-处理, 进账单-处理，也有可能属于其他未列出的分类。\n"
+        f"文档可能属于以下分类之一：{categories_str}。\n"
+        "也可能属于其他未列出的分类。\n"
         "请输出文档的最终分类名称，只输出分类，不要其他解释。"
     )
 

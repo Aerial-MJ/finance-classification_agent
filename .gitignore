@@ -22,3 +22,5 @@ script/classification/data_raw
 test
 script/rag/data/chroma_db
 script/rag/data/chroma_db_final
+script/distillation/logs
+script/distillation/wikitext

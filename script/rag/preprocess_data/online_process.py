@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-快速测试已构建的 RAG 向量库
-路径: /data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db
-"""
 
 import json
 import os
@@ -12,13 +8,14 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
+from Agent.configs.parse import args
 
 # ==================== 配置 ====================
-PERSIST_DIR = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db_final"
+PERSIST_DIR = args.local_persist_dir
 
-EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
-BASE_URL = "https://api.siliconflow.cn/v1"
-API_KEY = "sk-tgprnspwkhliprfcuobqpfiiwjawxkgaldpfkjtovpfudpmf"  # 你的 key
+EMBEDDING_MODEL = args.embedding_model
+BASE_URL = args.rag_base_url
+API_KEY = args.rag_api_key
 
 # 检查路径
 if not os.path.exists(PERSIST_DIR):
@@ -101,4 +98,4 @@ for i, query in enumerate(queries, 1):
     print("-" * 80)
 
 
-print("\n✅ RAG 测试完成！")
+print("\n RAG 测试完成！")

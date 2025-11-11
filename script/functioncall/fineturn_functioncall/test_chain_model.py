@@ -2,9 +2,10 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 import json
 import re
+from Agent.configs.parse import args
 
 # 模型和 tokenizer 路径（假设训练后保存的位置）
-model_path = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/fineturn_functioncall/qwen_functioncall_full_finetune/checkpoint-2000"
+model_path = args.functioncall_model_path
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # 加载 tokenizer

@@ -4,6 +4,7 @@ from io import BytesIO
 from PIL import Image  # 新增依赖Pillow库
 from openai import OpenAI
 import json
+from Agent.configs.parse import args
 
 # 新增：将任意格式图片转换为内存中的PNG二进制数据
 def convert_to_png_bytes(image_path):
@@ -31,8 +32,8 @@ def encode_image_to_base64(png_bytes):
 
 
 client = OpenAI(
-    api_key="sk-b95eb1a0a35f44efa7b49d2bca9d4c1f",  # 替换为你的API Key
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    api_key= args.vlm_api_key,  # 替换为你的API Key
+    base_url= args.vlm_base_url,
 )
 
 

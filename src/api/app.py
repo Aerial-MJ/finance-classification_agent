@@ -1,14 +1,18 @@
 import re
 import shutil
+import time
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
+
+import uvicorn
 from Agent.src.chain_define import (
     invoke_VLM_Local_model, invoke_VLM_model, invoke_classification_model, invoke_deepseek_model, invoke_model,
     invoke_orc_model, invoke_ocr_layoutLMv3_model, invoke_rag_model, image_rotate
 )
 UPLOAD_DIR = "./uploads"
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
@@ -18,6 +22,8 @@ import base64
 from io import BytesIO
 from pathlib import Path
 import json
+from Agent.configs.parse import args
+
 
 app = FastAPI()
 
@@ -49,16 +55,14 @@ class DeepseekRequest(BaseModel):
 
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
-KNOWLEDGE_BASE_PATH = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/knowledge_base.jsonl"
-PREPROCESS_IMAGE = "/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/preprocess_image.jpg"
+KNOWLEDGE_BASE_PATH = args.knowledge_base_dir
+PREPROCESS_IMAGE = args.preprocess_image
 
 @app.post("/upload-file")
 async def upload_file(file: UploadFile = File(...)):
     # 生成唯一文件名
     file_ext = file.filename.split(".")[-1]
     print(file)
-    print(file_ext)
-    print(file.filename)
     new_filename = f"{uuid.uuid4()}.{file_ext}"
     file_path = os.path.join(UPLOAD_DIR, new_filename)
     # 保存文件
@@ -125,8 +129,8 @@ async def ocr_layoutlm(request: OCRRequest):
     try:
         invoke_ocr_layoutLMv3_model(request.image_rotate_path)
         result={
-            "image1":"/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/ner_output/ner_annotated.png",
-            "image2":"/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/ocr_output/preprocess_image_ocr_res_img.jpg",
+            "image1":args.image1,
+            "image2":args.image2,
         }
         return {"status": "success", "result": result}
     
@@ -161,7 +165,24 @@ async def classification(request: OCRRequest):
         if(float(score)>90):
             print("当前置信度较高，直接分类为", class_)
             invoke_ocr_layoutLMv3_model(rotate_image)
-            return class_
+            data = {
+                "image_path": os.path.join(args.rag_data_dir , class_ , f"add_{int(time.time())}.jpg"), 
+                "label": class_,   # 最终分类结果
+                "VLM_text": {
+                    "file_type": class_,
+                }
+            }
+            result = {
+                "image1": args.image1 ,
+                "classification": f"{class_}\n(知识库已有类别)",
+                "knowledge_base_data": data
+            }
+
+            return {
+                "status": "success",
+                "classification_result": result
+            }
+
         else:
             print("当前置信度较低，建议进一步调用模型,可能不属于该分类")
 
@@ -177,7 +198,6 @@ async def classification(request: OCRRequest):
         print("="*60)
         print("执行vlm模型")
         VLM_json = invoke_VLM_Local_model(rotate_image)
-        # VLM_json = "{'file_type': '健康确认表', 'key_fields': {'姓名': '李秀', '性别': '女', '出生日期': '1982.4.13', '国籍': '中国', '联系电话': '15195851025', '护照号码': '568924', '有效签证': '有', '现居住地址': '成都市东湖国际东光-琉璃路299号', '代理人姓名': '', '代理人证件及号码': '', '填表日期': '', '申请人签名': '', '经办人签名': '', '审核人签署': ''}, 'layout_features': {'has_table': True, 'has_title': True, 'title': '健在确认表（存根）', 'table_structure': '多列多行表格，包含姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段'}, 'content_summary': '该文件是一份健康确认表，用于记录个人的基本信息、联系方式、证件情况以及居住地址等。表格中包含了姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段。'}"
 
         print("="*60)
         print("执行rag模型")
@@ -185,7 +205,7 @@ async def classification(request: OCRRequest):
 
         print("="*60)
         print("执行最终的判断模型")    
-        image_dir = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/图片示例"
+        image_dir = args.rag_data_dir
 
         categories = [p.name for p in Path(image_dir).iterdir() if p.is_dir()]
 
@@ -207,7 +227,7 @@ async def classification(request: OCRRequest):
 
         x = 0
         valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
-        target_dir="/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/图片示例/"+classification
+        target_dir=os.path.join(args.rag_data_dir , classification)
         if not os.path.exists(target_dir):
             x = 1
         else:
@@ -230,8 +250,8 @@ async def classification(request: OCRRequest):
 
         # 4. 构造返回结果（含图片 + 分类 + 完整 data）
         result = {
-            "image1": "/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/ner_output/ner_annotated.png",
-            "classification": classification,
+            "image1": args.image1 ,
+            "classification": classification ,
             "knowledge_base_data": data
         }
 
@@ -343,4 +363,4 @@ async def save_to_knowledge_base(data: dict):
 
 
 if __name__ == "__main__":
-    os.system("uvicorn app:app --host 0.0.0.0 --port 8000")
+    uvicorn.run("app:app", host=args.host, port=args.port)

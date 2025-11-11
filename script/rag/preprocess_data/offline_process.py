@@ -11,14 +11,16 @@ from langchain.storage import InMemoryStore  # 新增
 import shutil
 import os
 import time
-# ==================== 配置 ====================
-JSONL_BASE = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/knowledge_base.jsonl"
-JSONL_CLASS = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/knowledge_class.jsonl"
-PERSIST_DIR = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/chroma_db_final" 
+from Agent.configs.parse import args
 
-EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
-BASE_URL = "https://api.siliconflow.cn/v1"
-API_KEY = os.getenv("SILICONFLOW_API_KEY", "sk-tgprnspwkhliprfcuobqpfiiwjawxkgaldpfkjtovpfudpmf")
+# ==================== 配置 ====================
+JSONL_BASE = args.knowledge_base_dir
+JSONL_CLASS = args.knowledge_base_class
+PERSIST_DIR = args.persist_dir
+
+EMBEDDING_MODEL = args.embedding_model
+BASE_URL = args.rag_base_url
+API_KEY = args.rag_api_key
 
 CHUNK_SIZE = 600
 CHUNK_OVERLAP = 120

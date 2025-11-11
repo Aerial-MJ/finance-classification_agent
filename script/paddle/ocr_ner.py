@@ -15,12 +15,13 @@ from tqdm import tqdm
 from collections import Counter
 import cv2
 from paddleocr import DocPreprocessor
+from Agent.configs.parse import args
 
-# ===== 1. 配置 =====/data/postgraduates/2024/chenjiarui/Model/
+# ===== 1. 配置 =====
 class Config:
-    model_path = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-chinese/layoutlmv3-chinese-trained/best_f1_0.8733"  # 你的训练模型
-    base_model = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-base-chinese"  #
-    image_path = "./image_6.jpg"       
+    model_path =  args.layoutLMv3_train_model
+    base_model =  args.layoutLMv3_base_model  
+    image_path = "./test.jpg"       
     output_img = "./output/ner_annotated.png" 
     output_img1 = "./output/ner_annotated_color.png" 
     output_json = "./output/ner_results.json" 
@@ -28,13 +29,12 @@ class Config:
     label_list = ["O", "B-HEADER", "I-HEADER", "B-QUESTION", "I-QUESTION", "B-ANSWER", "I-ANSWER"]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# ===== 2. 🔥 修复版加载模型 =====
+# ===== 2. 修复版加载模型 =====
 def load_model():
-    # 🔥 先从基础模型加载tokenizer（确保有vocab）
+
     tokenizer = XLMRobertaTokenizerFast.from_pretrained(Config.base_model)
     image_processor = LayoutLMv3ImageProcessor.from_pretrained(Config.base_model, apply_ocr=False)
-    
-    # 🔥 再加载你的NER模型
+
     model = LayoutLMv3ForTokenClassification.from_pretrained(Config.model_path).to(Config.device)
     model.eval()
     return tokenizer, image_processor, model
@@ -60,7 +60,8 @@ def rotate_Image(image_path):
 
     rotated.save(Config.processored_img)
 
-# ===== 3. 🔥 完美PaddleOCR=====
+
+# ===== 3. 完美PaddleOCR=====
 def run_ocr(image_path):
     ocr = PaddleOCR(
         use_doc_orientation_classify=True,
@@ -173,7 +174,6 @@ def predict_ner(tokenizer, image_processor, model, img, words, bboxes , text_wor
             bbox_tensor[i] = torch.tensor([0, 0, 0, 0])
     bbox_tensor = bbox_tensor.to(Config.device)
     
-
     
     with torch.no_grad():
         outputs = model(
@@ -222,21 +222,12 @@ def predict_ner(tokenizer, image_processor, model, img, words, bboxes , text_wor
 
 # box_tags = [ner_tags[j] for j in range(len(ner_tags)) if word_ids[j] in box]
 
-
 # ===== 5. 🔥 完美可视化=====
 def visualize_and_connect(img, words, bboxes, ner_tags ,draw_tags):
     draw = ImageDraw.Draw(img)
     font = ImageFont.load_default()
     connected_text = ""
-    colors = {"HEADER": "blue", "QUESTION": "green", "ANSWER": "yellow"}
-
-    # for box in bboxes:
-    #     x1 = box[0]
-    #     y1 = box[1]
-    #     x2 = box[2]
-    #     y2 = box[3]
-    #     draw.rectangle([x1, y1, x2, y2], outline="red", width=1)
-    #     img.save(Config.output_img1)    
+    colors = {"HEADER": "blue", "QUESTION": "green", "ANSWER": "yellow"}  
     
     colors = {"HEADER": (0, 0, 255, 50),      # 蓝色半透明
               "QUESTION": (0, 255, 0, 50),    # 绿色半透明
@@ -251,7 +242,6 @@ def visualize_and_connect(img, words, bboxes, ner_tags ,draw_tags):
 
     for i, (word, tag, box) in enumerate(zip(words, ner_tags, bboxes)):
         # 画红色边框
-        img_w, img_h = img.size
         x1 = box[0]
         y1 = box[1]
         x2 = box[2]
@@ -271,7 +261,7 @@ def visualize_and_connect(img, words, bboxes, ner_tags ,draw_tags):
             connected_text += f"{word} "
         else:
             connected_text += f"{word} "
-        print(i)
+        # print(i)
     # 保存图片
     img.save(Config.output_img)
     
@@ -293,9 +283,9 @@ def visualize_and_connect(img, words, bboxes, ner_tags ,draw_tags):
 
 # ===== 6. 主程序=====
 if __name__ == "__main__":
-    print("🚀" + "="*50)
-    print("🎯 PaddleOCR + LayoutLMv3 NER 终极完整版！")
-    print("🚀" + "="*50)
+    print("="*50)
+    print("PaddleOCR + LayoutLMv3 NER 终极完整版！")
+    print("="*50)
     os.makedirs("./output", exist_ok=True)
     os.makedirs("./output1", exist_ok=True)
 
@@ -305,13 +295,13 @@ if __name__ == "__main__":
     
     # 加载图片
     img = Image.open(Config.image_path).convert("RGB")
-    print(f"🖼️  图片尺寸: {img.size}")
+    print(f"图片尺寸: {img.size}")
     
     #预处理图片
     rotate_Image(Config.image_path)
 
     # OCR识别
-    print("\n🔍 阶段1: PaddleOCR识别...")
+    print("\n阶段1: PaddleOCR识别...")
     words, bboxes , text_word_boxes = run_ocr(Config.processored_img)
     print(len(words))
     print(len(bboxes))
@@ -319,18 +309,18 @@ if __name__ == "__main__":
     img = Image.open(Config.processored_img).convert("RGB")
     
     # NER预测
-    print("\n🎯 阶段2: LayoutLMv3 NER...")
+    print("\n阶段2: LayoutLMv3 NER...")
     if words:
         draw_tags , ner_tags = predict_ner(tokenizer, image_processor, model, img, words, bboxes,text_word_boxes)
         print(len(ner_tags))
-        print("\n🖼️  阶段3: 生成可视化...")
+        print("\n 阶段3: 生成可视化...")
         visualize_and_connect(img, words, bboxes, ner_tags, draw_tags)
     else:
-        print("⚠️  OCR无结果，保存原图")
+        print("OCR无结果，保存原图")
         img.save("no_ocr.png")
     
-    print("\n🎉" + "="*50)
-    print("✅ 任务完成！检查输出文件：")
-    print(f"   📸 {Config.output_img}")
-    print(f"   📄 {Config.output_json}")
-    print("🎉" + "="*50)
+    print("\n" + "="*50)
+    print(" 任务完成！检查输出文件：")
+    print(f"    {Config.output_img}")
+    print(f"    {Config.output_json}")
+    print("" + "="*50)

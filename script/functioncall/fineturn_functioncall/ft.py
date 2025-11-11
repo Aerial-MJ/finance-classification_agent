@@ -10,12 +10,12 @@ from transformers import (
     TrainingArguments, Trainer,set_seed,
     DataCollatorForLanguageModeling
 )
-
+from Agent.configs.parse import args
 
 seed = 42
 set_seed(seed)
 
-model_name = "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen3-4B-Instruct-2507"
+model_name = args.qwen3_1_7b_model
 dataset_name = "./hermes-function-calling-thinking-V1"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 output_dir = "./qwen_functioncall"

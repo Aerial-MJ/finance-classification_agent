@@ -43,11 +43,9 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from Agent.script.rag.preprocess_data.offline_process import VectorStoreManager
+from Agent.configs.parse import args
 
-os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 current_directory = os.path.dirname(os.path.abspath(__file__))
-# print(current_directory)
-
 
 def image_rotate(image_origin_path):   
     class Config:
@@ -75,8 +73,6 @@ def image_rotate(image_origin_path):
     # print("=============")
     return Config.processored_img
 
-# image_rotate("/data/postgraduates/2024/chenjiarui/Model/Agent/test/零图片样本/银行本票/本票8.jpg")
-
 
 
 def invoke_orc_model(image_rotate_path):
@@ -100,19 +96,18 @@ def invoke_orc_model(image_rotate_path):
 
     #print(ocr_text)
     return ocr_text
-    
-# invoke_orc_model("/data/postgraduates/2024/chenjiarui/Model/Agent/test/零图片样本/银行本票/本票8.jpg")
+
 
 
 
 def invoke_VLM_Local_model (image_rotate_path) :
     print(image_rotate_path)
     if not image_rotate_path:
-        image_rotate_path="/data/postgraduates/2024/chenjiarui/Model/Agent/src/result/preprocess_image.jpg"
+        image_rotate_path=args.preprocess_image
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype="auto" , device_map="auto" )
+    args.vlm_model, torch_dtype="auto" , device_map="auto" )
 
-    processor = AutoProcessor.from_pretrained("/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct")
+    processor = AutoProcessor.from_pretrained(args.vlm_model)
 
     messages = [
         {
@@ -222,8 +217,8 @@ def invoke_VLM_model(image_rotate_path):
 
 
     client = OpenAI(
-        api_key="sk-b95eb1a0a35f44efa7b49d2bca9d4c1f",  # 替换为你的API Key
-        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        api_key= args.vlm_api_key,  # 替换为你的API Key
+        base_url= args.vlm_base_url,
     )
 
 
@@ -297,7 +292,6 @@ def invoke_VLM_model(image_rotate_path):
         
         print(text)
         return result if result is not None else text
-# invoke_VLM_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg")
 
 
 
@@ -308,8 +302,8 @@ def invoke_ocr_layoutLMv3_model(image_rotate_path):
     os.makedirs(current_directory+"/result/ner_output", exist_ok=True)
 
     class Config:
-        model_path = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-chinese/layoutlmv3-chinese-trained/best_f1_0.8733"  # 你的训练模型
-        base_model = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-base-chinese"
+        model_path =  args.layoutLMv3_train_model
+        base_model =  args.layoutLMv3_base_model  
         image_path = image_rotate_path
         output_img = current_directory+ "/result/ner_output/ner_annotated.png" 
         output_img1 = current_directory+ "/result/ner_output/ner_annotated_color.png" 
@@ -515,7 +509,7 @@ def invoke_ocr_layoutLMv3_model(image_rotate_path):
 
     if words:
         draw_tags , ner_tags = predict_ner(tokenizer, image_processor, model, img, words, bboxes,text_word_boxes)
-        connected_text=visualize_and_connect(img, words, bboxes, ner_tags, draw_tags)
+        connected_text = visualize_and_connect(img, words, bboxes, ner_tags, draw_tags)
     else:
         img.save(current_directory+"/result/no_ocr.png")
 
@@ -523,19 +517,17 @@ def invoke_ocr_layoutLMv3_model(image_rotate_path):
     torch.cuda.empty_cache()
     return connected_text
 
-# invoke_ocr_layoutLMv3_model("/data/postgraduates/2024/chenjiarui/Model/Agent/test/零图片样本/银行本票/本票8.jpg")
-
 
 
 def invoke_classification_model(image_rotate_path , ocr_text):
     if image_rotate_path is None:
         image_rotate_path=current_directory + "/result/preprocess_image.jpg"
     class Config:
-        checkpoint = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/classification/kfold_checkpoints/fold_3_best.pt"
+        checkpoint = args.classification_model
         image = image_rotate_path
         text = ocr_text
-        text_model_name = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/classification/bert-base-chinese"
-        data_root = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/classification/data_raw"
+        text_model_name = args.bert_base_chinese
+        data_root = args.class_data_dir
         text_json = None
         missing_text_fallback=""
         show_top_k=3
@@ -781,8 +773,6 @@ def invoke_classification_model(image_rotate_path , ocr_text):
 
     return classification_result
 
-# invoke_classification_model("/data/postgraduates/2024/chenjiarui/Model/Agent/src/test.jpg","ocr识别到的文字")
-
 
 
 def invoke_rag_model(rag_text , source = None):
@@ -836,7 +826,7 @@ def invoke_rag_model(rag_text , source = None):
 
                 results.append({
                     "id": j,
-                    "title": f"[{label}] {source}",  # 智能标题
+                    "title": f"[{label}] {source}", 
                     "snippet": preview,
                     "source": source,
                     "line": line,
@@ -874,15 +864,13 @@ def invoke_rag_model(rag_text , source = None):
             result += r['content']
     return result
 
-# invoke_rag_model("转账支票-处理")
-
 
 
 def invoke_deepseek_model(text):
-    BASE_URL = "https://api.deepseek.com"
-    API_KEY = "sk-9fc40e8ded4a45f5b9fc61b3330074d3"
+    BASE_URL = args.llm_base_url
+    API_KEY = args.llm_api_key
 
-    deepseek_chat_model = "deepseek-chat"
+    deepseek_chat_model = args.llm_model
 
     llm1 = ChatOpenAI(model=deepseek_chat_model, api_key=API_KEY, base_url=BASE_URL)
 
@@ -892,7 +880,6 @@ def invoke_deepseek_model(text):
     #print(ans.content)
 
     return ans.content
-# invoke_deepseek_model("转账支票-处理")
 
 
 
@@ -933,7 +920,6 @@ def invoke_model(rotate_image):
     print("="*60)
     print("执行vlm模型")
     VLM_json = invoke_VLM_model(rotate_image)
-    # VLM_json = "{'file_type': '健康确认表', 'key_fields': {'姓名': '李秀', '性别': '女', '出生日期': '1982.4.13', '国籍': '中国', '联系电话': '15195851025', '护照号码': '568924', '有效签证': '有', '现居住地址': '成都市东湖国际东光-琉璃路299号', '代理人姓名': '', '代理人证件及号码': '', '填表日期': '', '申请人签名': '', '经办人签名': '', '审核人签署': ''}, 'layout_features': {'has_table': True, 'has_title': True, 'title': '健在确认表（存根）', 'table_structure': '多列多行表格，包含姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段'}, 'content_summary': '该文件是一份健康确认表，用于记录个人的基本信息、联系方式、证件情况以及居住地址等。表格中包含了姓名、性别、出生日期、国籍、联系电话、提交证件情况、现居住地址、代理人情况、填表日期、申请人签名、经办人签名、审核人签署等字段。'}"
 
     print("="*60)
     print("执行rag模型")
@@ -943,7 +929,7 @@ def invoke_model(rotate_image):
     print("执行最终的判断模型")  
 
    
-    image_dir = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/图片示例"
+    image_dir = args.rag_data_dir
 
     categories = [p.name for p in Path(image_dir).iterdir() if p.is_dir()]
 

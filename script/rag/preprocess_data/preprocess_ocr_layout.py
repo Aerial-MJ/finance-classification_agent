@@ -19,12 +19,12 @@ import os
 from tqdm import tqdm
 from collections import Counter
 from paddleocr import DocPreprocessor
+from Agent.configs.parse import args
 
-
-# ===== 1. 配置 =====/data/postgraduates/2024/chenjiarui/Model/
+# ===== 1. 配置 =====
 class Config:
-    model_path = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-chinese/layoutlmv3-chinese-trained/best_f1_0.8733"  # 你的训练模型
-    base_model = "/data/postgraduates/2024/chenjiarui/Model/LayoutLMv3/layoutlmv3-base-chinese"  #
+    model_path =  args.layoutLMv3_train_model
+    base_model =  args.layoutLMv3_base_model  
     label_list = ["O", "B-HEADER", "I-HEADER", "B-QUESTION", "I-QUESTION", "B-ANSWER", "I-ANSWER"]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -205,18 +205,15 @@ def predict_ner(tokenizer, image_processor, model, img, words, bboxes , text_wor
         if wid is not None and wid < len(words):
             ner_tags[wid] = Config.label_list[predictions[i]]
     
-    # print(ner_tags)
-    # print(f"🎯 NER完成: {len(ner_tags)} 个标签")
-    # print(f"🏷️  示例: {ner_tags[:3]}")
 
     unified_tags = []
-    len1=0
+    len1 = 0
     for i, box in enumerate(text_word_boxes):
         # 获取框内所有单词的标签
         print("box = ",len(box))
         print("len1 = ",len1)
         print("ner_tags",len(ner_tags))
-        box_tags = [ner_tags[len1 + j] for j in range(len(box)) if len1 + j< len(ner_tags)]
+        box_tags = [ner_tags[len1 + j] for j in range(len(box)) if len1 + j < len(ner_tags)]
         len1 += len(box)
         # 只提取实体类型，忽略 B- 和 I- 前缀
         box_tags_entity = [tag.split('-')[-1] for tag in box_tags if tag != "O"]  # 获取类型部分
@@ -245,13 +242,6 @@ def visualize_and_connect(img, words, bboxes, ner_tags ,draw_tags,output_path):
     connected_text = ""
     colors = {"HEADER": "blue", "QUESTION": "green", "ANSWER": "yellow"}
 
-    # for box in bboxes:
-    #     x1 = box[0]
-    #     y1 = box[1]
-    #     x2 = box[2]
-    #     y2 = box[3]
-    #     draw.rectangle([x1, y1, x2, y2], outline="red", width=1)
-    #     img.save(Config.output_img1)    
     
     colors = {"HEADER": (0, 0, 255, 50),      # 蓝色半透明
               "QUESTION": (0, 255, 0, 50),    # 绿色半透明
@@ -299,10 +289,7 @@ def visualize_and_connect(img, words, bboxes, ner_tags ,draw_tags,output_path):
     }
     with open(os.path.join(output_path, "output","ner_results.json"), "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
-    
-    # print(f"✅ 标注图片: {Config.output_img}")
-    # print(f"✅ JSON结果: {Config.output_json}")
-    # print(f"📄 连贯NER文本:\n{connected_text.strip()}")
+
 
 
 
@@ -357,8 +344,7 @@ def batch_process_images(image_folder,  tokenizer, image_processor, model):
         process_image(image_path, output_dir, tokenizer, image_processor, model)
 
 # 设置图片和输出文件夹路径
-image_folder = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/图片示例"  # 存放图片的文件夹路径
- # 存放处理结果的文件夹
+image_folder = args.rag_data_dir  # 存放图片的文件夹路径
 
 # 假设你已经加载了模型和tokenizer
 tokenizer, image_processor, model = load_model()

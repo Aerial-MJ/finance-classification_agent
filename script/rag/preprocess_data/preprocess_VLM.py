@@ -3,10 +3,11 @@ import json
 import os
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
 from qwen_vl_utils import process_vision_info
+from Agent.configs.parse import args
 
 # default: Load the model on the available device(s)
 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    "/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype="auto", device_map="auto" 
+    args.vlm_model, torch_dtype="auto", device_map="auto" 
 )
 
 # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
@@ -18,15 +19,14 @@ model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
 # )
 
 # default processer
-processor = AutoProcessor.from_pretrained("/data/postgraduates/2024/chenjiarui/Model/Qwen/Qwen2.5-VL-7B-Instruct")
+processor = AutoProcessor.from_pretrained(args.vlm_model)
 
 # The default range for the number of visual tokens per image in the model is 4-16384.
 # You can set min_pixels and max_pixels according to your needs, such as a token range of 256-1280, to balance performance and cost.
 # min_pixels = 256*28*28
 # max_pixels = 1280*28*28
 # processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct", min_pixels=min_pixels, max_pixels=max_pixels)
-output_file = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/knowledge_base.jsonl"
-
+output_file =args.knowledge_base_dir
 
 def save_knowledge_base(image):
     messages = [
@@ -104,7 +104,7 @@ def save_knowledge_base(image):
     return (str(result))
 
 
-image_dir = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/图片示例"
+image_dir = args.rag_data_dir
 
 # 读取图片文件
 def process_images(image_dir):
@@ -118,12 +118,14 @@ def process_images(image_dir):
 
 image_path=process_images(image_dir)
 
+
+
 import json
 import os
 
 image_list = []
 
-output_file = "/data/postgraduates/2024/chenjiarui/Model/Agent/script/rag/data/knowledge_base.jsonl"
+output_file = args.knowledge_base_dir
 
 # 1. 读取原始 knowledge_base.jsonl
 with open(output_file, "r", encoding="utf-8") as f:
@@ -166,6 +168,8 @@ with open(output_file, "r", encoding="utf-8") as f:
         label=entry["label"]
         VLM_text["file_type"]=label
         entry["VLM_text"] = VLM_text
+
+
 
 with open(output_file, "w", encoding="utf-8") as f:
     for entry in knowledge_list:
